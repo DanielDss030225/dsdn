@@ -1,0 +1,50 @@
+/* Estilos específicos para prevenir foco automático em dispositivos móveis */
+
+/* Previne zoom automático em iOS quando input recebe foco */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="date"],
+  input[type="time"],
+  textarea,
+  select {
+    font-size: 16px !important;
+    transform: translateZ(0);
+    -webkit-appearance: none;
+  }
+  
+  /* Previne cursor piscando quando modal está aberto */
+  .modal-open input,
+  .modal-open textarea {
+    caret-color: transparent;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Permite seleção apenas quando o usuário toca diretamente no campo */
+  .modal-open input:active,
+  .modal-open textarea:active {
+    caret-color: auto;
+    -webkit-user-select: auto;
+    -moz-user-select: auto;
+    -ms-user-select: auto;
+    user-select: auto;
+  }
+}
+
+/* Previne outline de foco em todos os elementos do modal */
+.dialog-content * {
+  outline: none !important;
+}
+
+/* Estilo para quando o campo está realmente sendo editado */
+.editing-field {
+  caret-color: auto !important;
+  -webkit-user-select: auto !important;
+  -moz-user-select: auto !important;
+  -ms-user-select: auto !important;
+  user-select: auto !important;
+}
