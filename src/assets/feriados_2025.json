@@ -1,0 +1,67 @@
+[
+  {
+    "data": "1/1/25",
+    "dia_da_semana": "quarta-feira",
+    "feriado": "Confraternização Universal"
+  },
+  {
+    "data": "3/3/25",
+    "dia_da_semana": "segunda-feira",
+    "feriado": "Carnaval"
+  },
+  {
+    "data": "4/3/25",
+    "dia_da_semana": "terça-feira",
+    "feriado": "Carnaval"
+  },
+  {
+    "data": "18/4/25",
+    "dia_da_semana": "sexta-feira",
+    "feriado": "Paixão de Cristo"
+  },
+  {
+    "data": "21/4/25",
+    "dia_da_semana": "segunda-feira",
+    "feriado": "Tiradentes"
+  },
+  {
+    "data": "1/5/25",
+    "dia_da_semana": "quinta-feira",
+    "feriado": "Dia do Trabalho"
+  },
+  {
+    "data": "19/6/25",
+    "dia_da_semana": "quinta-feira",
+    "feriado": "Corpus Christi"
+  },
+  {
+    "data": "7/9/25",
+    "dia_da_semana": "domingo",
+    "feriado": "Independência do Brasil"
+  },
+  {
+    "data": "12/10/25",
+    "dia_da_semana": "domingo",
+    "feriado": "Nossa Sr.a Aparecida - Padroeira do Brasil"
+  },
+  {
+    "data": "2/11/25",
+    "dia_da_semana": "domingo",
+    "feriado": "Finados"
+  },
+  {
+    "data": "15/11/25",
+    "dia_da_semana": "sábado",
+    "feriado": "Proclamação da República"
+  },
+  {
+    "data": "20/11/25",
+    "dia_da_semana": "quinta-feira",
+    "feriado": "Dia Nacional de Zumbi e da Consciência Negra"
+  },
+  {
+    "data": "25/12/25",
+    "dia_da_semana": "quinta-feira",
+    "feriado": "Natal"
+  }
+]

@@ -1,0 +1,67 @@
+[
+  {
+    "data": "1/1/26",
+    "dia_da_semana": "quinta-feira",
+    "feriado": "Confraternização Universal"
+  },
+  {
+    "data": "16/2/26",
+    "dia_da_semana": "segunda-feira",
+    "feriado": "Carnaval"
+  },
+  {
+    "data": "17/2/26",
+    "dia_da_semana": "terça-feira",
+    "feriado": "Carnaval"
+  },
+  {
+    "data": "3/4/26",
+    "dia_da_semana": "sexta-feira",
+    "feriado": "Paixão de Cristo"
+  },
+  {
+    "data": "21/4/26",
+    "dia_da_semana": "terça-feira",
+    "feriado": "Tiradentes"
+  },
+  {
+    "data": "1/5/26",
+    "dia_da_semana": "sexta-feira",
+    "feriado": "Dia do Trabalho"
+  },
+  {
+    "data": "4/6/26",
+    "dia_da_semana": "quinta-feira",
+    "feriado": "Corpus Christi"
+  },
+  {
+    "data": "7/9/26",
+    "dia_da_semana": "segunda-feira",
+    "feriado": "Independência do Brasil"
+  },
+  {
+    "data": "12/10/26",
+    "dia_da_semana": "segunda-feira",
+    "feriado": "Nossa Sr.a Aparecida - Padroeira do Brasil"
+  },
+  {
+    "data": "2/11/26",
+    "dia_da_semana": "segunda-feira",
+    "feriado": "Finados"
+  },
+  {
+    "data": "15/11/26",
+    "dia_da_semana": "domingo",
+    "feriado": "Proclamação da República"
+  },
+  {
+    "data": "20/11/26",
+    "dia_da_semana": "sexta-feira",
+    "feriado": "Dia Nacional de Zumbi e da Consciência Negra"
+  },
+  {
+    "data": "25/12/26",
+    "dia_da_semana": "sexta-feira",
+    "feriado": "Natal"
+  }
+]
