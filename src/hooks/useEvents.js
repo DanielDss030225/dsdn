@@ -90,23 +90,11 @@ export function useEvents() {
       const eventToDelete = prev.find(event => event.id === eventId);
       if (!eventToDelete) return prev; // Evento não encontrado
 
-      if (eventToDelete.recurrence && eventToDelete.recurrence !== 'none') {
-        // Se o evento a ser deletado é o evento base recorrente, remove ele e todas as suas instâncias
-        return prev.filter(event => event.parentEventId !== eventId && event.id !== eventId);
-      } else if (eventToDelete.parentEventId) {
-        // Se o evento a ser deletado é uma instância de um evento recorrente, remove o evento base e todas as suas instâncias
-        // Se o evento a ser deletado é uma instância de um evento recorrente, 
-        // precisamos encontrar o evento base e remover todas as suas instâncias, incluindo ele mesmo.
-        const parentId = eventToDelete.parentEventId;
-        // Se o evento deletado é uma instância, mas não o evento base, 
-        // precisamos encontrar o evento base (se existir) e remover todas as suas ocorrências.
-        // Caso contrário, se for o evento base, a primeira condição já o teria tratado.
-        // A lógica atual já cobre isso, mas vamos garantir que o parentId seja usado corretamente para filtrar.
-        return prev.filter(event => event.parentEventId !== parentId && event.id !== parentId);
-      } else {
-        // Se não é recorrente e não tem parentEventId, remove apenas o evento específico
-        return prev.filter(event => event.id !== eventId);
-      }
+      // Determina o ID do evento base para a recorrência
+      const baseEventId = eventToDelete.parentEventId || eventToDelete.id;
+
+      // Remove o evento base e todas as suas instâncias
+      return prev.filter(event => event.parentEventId !== baseEventId && event.id !== baseEventId);
     });
   }
 

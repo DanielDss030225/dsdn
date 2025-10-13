@@ -39,6 +39,32 @@ function App() {
     const savedSoundsEnabled = localStorage.getItem("soundsEnabled")
     return savedSoundsEnabled ? JSON.parse(savedSoundsEnabled) : true
   })
+const [touchStartX, setTouchStartX] = useState(null)
+const [touchEndX, setTouchEndX] = useState(null)
+const handleTouchStart = (e) => {
+  setTouchStartX(e.changedTouches[0].clientX)
+}
+
+const handleTouchEnd = (e) => {
+  if (touchStartX === null) return
+
+  const touchEnd = e.changedTouches[0].clientX
+  const deltaX = touchEnd - touchStartX
+  const swipeThreshold = 300 // mínimo em pixels para considerar swipe
+
+  if (deltaX > swipeThreshold) {
+    // Swipe para a direita → mês anterior
+    playClickSound()
+    goToPreviousMonth()
+  } else if (deltaX < -swipeThreshold) {
+    // Swipe para a esquerda → próximo mês
+    playClickSound()
+    goToNextMonth()
+  }
+
+  setTouchStartX(null)
+  setTouchEndX(null)
+}
 
   useEffect(() => {
     localStorage.setItem("soundsEnabled", JSON.stringify(soundsEnabled))
@@ -55,10 +81,9 @@ function App() {
       try {
         // Tentar diferentes caminhos para os arquivos de áudio
         const audioPaths = [
-          { click: "/audio/click.mp3", modal: "/audio/modal_open.mp3" },
           { click: "./audio/click.mp3", modal: "./audio/modal_open.mp3" },
-          { click: "/public/audio/click.mp3", modal: "/public/audio/modal_open.mp3" }
-        ]
+          { click: "/audio/click.mp3", modal: "/audio/modal_open.mp3" },
+          { click: "/public/audio/click.mp3", modal: "/public/audio/modal_open.mp3" }     ]
         
         let audioLoaded = false
         
@@ -234,11 +259,7 @@ const handleSaveEvent = (eventData) => {
 
 
   const handleDeleteEvent = (eventId) => {
-    const originalEvent = events.find(evt => evt.id === eventId)
-    if (!originalEvent) return
-    const recurrenceId = originalEvent.recurrenceId || originalEvent.id
-    const eventsToRemove = events.filter(evt => (evt.recurrenceId || evt.id) === recurrenceId)
-    eventsToRemove.forEach(evt => removeEvent(evt.id))
+    removeEvent(eventId)
     setSelectedEvent(null)
     setShowEventModal(false)
   }
@@ -370,21 +391,26 @@ const renderMonthView = () => {
       </div>
 
       {/* Grid do calendário */}
-      <div className="flex-1 min-h-[600px] overflow-y-auto pb-[20px]">
-        <div className="grid grid-cols-7 border border-border rounded-lg">
-          {/* Dias da semana */}
-          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day =>
-            <div key={day} className="bg-muted text-center font-medium text-sm py-1">{day}</div>
-          )}
+    <div
+  className="flex-1 min-h-[600px] overflow-y-auto pb-[20px]"
+  onTouchStart={handleTouchStart}
+  onTouchEnd={handleTouchEnd}
+>
+  <div className="grid grid-cols-7 border border-border rounded-lg">
+    {/* Dias da semana */}
+    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day =>
+      <div key={day} className="bg-muted text-center font-medium text-sm py-1">{day}</div>
+    )}
 
-          {/* Dias do mês */}
-          {days.map((dayInfo, index) =>
-            <div key={index} className="h-[120px]">
-              {renderDayCell(dayInfo, index)}
-            </div>
-          )}
-        </div>
+    {/* Dias do mês */}
+    {days.map((dayInfo, index) =>
+      <div key={index} className="h-[120px]">
+        {renderDayCell(dayInfo, index)}
       </div>
+    )}
+  </div>
+</div>
+
     </div>
   )
 }

@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig({
-  // base: '/dsdn/', // Removido para deploy na raiz
+  base: '/dsdn/', // 👈 aqui, use o nome exato do repositório
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
