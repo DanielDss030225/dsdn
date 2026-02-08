@@ -25,29 +25,40 @@ export function getScalePattern(scaleType) {
 }
 
 export function isDayOff(date, scaleType, referenceDateStr = '06/10/2025') {
-  // Converte a data de referência para objeto Date
-  const [refDay, refMonth, refYear] = referenceDateStr.split('/').map(Number);
-  const referenceDate = new Date(refYear, refMonth - 1, refDay); // Mês é 0-indexado no JavaScript
+  let sequence;
+  let referenceDate;
 
-  // Calcula a diferença em dias entre a data fornecida e a data de referência
-  const deltaTime = date.getTime() - referenceDate.getTime();
-  const deltaDays = Math.floor(deltaTime / (1000 * 60 * 60 * 24));
+  if (typeof scaleType === 'string') {
+    // Escalas predefinidas (ALFA/BRAVO)
+    const [refDay, refMonth, refYear] = referenceDateStr.split('/').map(Number);
+    referenceDate = new Date(refYear, refMonth - 1, refDay);
 
-  // O dia da semana da data fornecida (0=Dom, 1=Seg, ..., 6=Sab)
-  // Convertemos para o formato usado no padrão (0=Seg, 1=Ter, ..., 6=Dom)
-  const dayOfWeekIndex = (date.getDay() + 6) % 7; // Converte de Dom=0 para Seg=0
+    const dayOfWeekIndex = (date.getDay() + 6) % 7; 
+    const deltaTime = date.getTime() - referenceDate.getTime();
+    const deltaDays = Math.floor(deltaTime / (1000 * 60 * 60 * 24));
+    const dayInCycle = ((deltaDays % 14) + 14) % 14;
+    const weekInPattern = dayInCycle < 7 ? 0 : 1;
 
-  // Calcula o índice do dia dentro do ciclo de 14 dias
-  // Garantindo que o resultado seja sempre positivo
-  const dayInCycle = ((deltaDays % 14) + 14) % 14;
+    const pattern = getScalePattern(scaleType);
+    const status = pattern[weekInPattern][dayOfWeekIndex];
+    return status === 0;
+  } else if (typeof scaleType === 'object' && scaleType.sequence) {
+    // Escala personalizada
+    sequence = scaleType.sequence; // Array de 0s (folga) e 1s (trabalho)
+    referenceDate = new Date(scaleType.referenceDate);
+    
+    // Normalizar datas para ignorar horas
+    const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
 
-  // Determina qual semana do padrão de 2 semanas (0 para Semana 1, 1 para Semana 2)
-  const weekInPattern = dayInCycle < 7 ? 0 : 1;
+    const deltaTime = targetDate.getTime() - startDate.getTime();
+    const deltaDays = Math.round(deltaTime / (1000 * 60 * 60 * 24));
+    
+    const index = ((deltaDays % sequence.length) + sequence.length) % sequence.length;
+    return sequence[index] === 0;
+  }
 
-  const pattern = getScalePattern(scaleType);
-  const status = pattern[weekInPattern][dayOfWeekIndex];
-
-  return status === 0; // Retorna true se for folga (0), false se for trabalho (1)
+  return false;
 }
 
 export function determineInitialScale(userIsOffToday, currentDate, referenceDateStr = '06/10/2025') {

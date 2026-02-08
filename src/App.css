@@ -691,10 +691,7 @@
 
 /* Garante rolagem global em qualquer caso */
 html, body, #root {
-  height: 100%;
-  max-height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 100%;
 }
 
 /* Para modais e containers grandes */
@@ -711,22 +708,7 @@ html {
   scroll-behavior: smooth;
 
 }
-header {
-  position: fixed;
-top: 0;
-left: 0;
-height: 120px;
-width: 100%;
-}
-
-main {
-  position: fixed;
-  margin-top: 120px;
-  overflow-y: auto;
-  width: 100%;
-
-
-}
+/* Header and Main managed by App.jsx classes */
 
 /* Exemplo em globals.css */
 html {

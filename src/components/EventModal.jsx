@@ -6,22 +6,24 @@ import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { Calendar, Clock, Repeat, Tag, Trash2 } from 'lucide-react'
+import { Calendar, Clock, Repeat, Tag, Trash2, Briefcase, Home } from 'lucide-react'
+import { getWorkStatusForDate } from '../lib/scaleLogic.js'
 import './EventModal.css'
 
-export function EventModal({ 
-  isOpen, 
-  onClose, 
-  onSave, 
+export function EventModal({
+  isOpen,
+  onClose,
+  onSave,
   onDelete,
   event = null,
   selectedDate = null,
-  eventsOfDay = []
+  eventsOfDay = [],
+  userScale = null
 }) {
   const dialogRef = useRef(null)
 
   const defaultForm = useMemo(() => {
-    const defaultDate = selectedDate 
+    const defaultDate = selectedDate
       ? selectedDate.toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0]
 
@@ -124,18 +126,35 @@ export function EventModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         ref={dialogRef}
-        restoreFocus={false} // Não retorna foco ao fechar
-        autoFocus={false}    // Não foca automaticamente ao abrir
-        className="w-full h-screen max-w-full m-0 p-4 flex flex-col overflow-y-auto rounded-none border-0"
-        onOpenAutoFocus={(e) => e.preventDefault()} // Previne foco automático
-        onCloseAutoFocus={(e) => e.preventDefault()} // Previne foco ao fechar
-        tabIndex={-1} // Remove da navegação por tab
+        restoreFocus={false}
+        autoFocus={false}
+        className="w-[calc(100%-2rem)] sm:max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-4 flex flex-col mx-auto"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        tabIndex={-1}
       >
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            {event ? 'Editar Evento' : 'Novo Evento'}
-          </DialogTitle>
+          <div className="flex justify-between items-center w-full pr-8">
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              {event ? 'Editar Evento' : 'Novo Evento'}
+            </DialogTitle>
+
+            {userScale && formData.date && (
+              <div className="flex items-center gap-1">
+                {(() => {
+                  const date = new Date(formData.date + 'T12:00:00')
+                  const status = getWorkStatusForDate(date, userScale)
+                  return status ? (
+                    <Badge className={`${status.isOff ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white border-0 flex items-center gap-1 py-1`}>
+                      {status.isOff ? <Home className="w-3 h-3" /> : <Briefcase className="w-3 h-3" />}
+                      {status.isOff ? 'Folga' : 'Trabalha'}
+                    </Badge>
+                  ) : null
+                })()}
+              </div>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="flex-1 space-y-4 mt-4">
@@ -251,10 +270,10 @@ export function EventModal({
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {['evento','aniversario','trabalho','pessoal','saude','estudo'].map(cat => (
+                  {['evento', 'aniversario', 'trabalho', 'pessoal', 'saude', 'estudo'].map(cat => (
                     <SelectItem key={cat} value={cat}>
                       <Badge className={getCategoryColor(cat)}>
-                        {cat.charAt(0).toUpperCase()+cat.slice(1)}
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
                       </Badge>
                     </SelectItem>
                   ))}
@@ -290,14 +309,14 @@ export function EventModal({
           <div className="flex justify-between pt-4 flex-shrink-0">
             <div>
               {event && onDelete && (
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(event.id)} className="flex items-center gap-2">
+                <Button id="btn-delete-event" variant="destructive" size="sm" onClick={() => handleDelete(event.id)} className="flex items-center gap-2">
                   <Trash2 className="w-4 h-4" />Excluir
                 </Button>
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button onClick={handleSave}>{event ? 'Atualizar' : 'Salvar'}</Button>
+              <Button id="btn-cancel-event" variant="outline" onClick={onClose}>Cancelar</Button>
+              <Button id="btn-save-event" onClick={handleSave}>{event ? 'Atualizar' : 'Salvar'}</Button>
             </div>
           </div>
 
@@ -311,7 +330,7 @@ export function EventModal({
                       {evt.time && <span className="font-mono mr-2">{evt.time}</span>}
                       <span className="font-medium">{evt.title}</span>
                     </div>
-                    <Button variant="destructive" size="sm" className="flex items-center gap-1" onClick={() => onDelete(evt.id)}>
+                    <Button id={`btn-delete-event-list-${evt.id}`} variant="destructive" size="sm" className="flex items-center gap-1" onClick={() => onDelete(evt.id)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
