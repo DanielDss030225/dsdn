@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Briefcase, Smartphone, Monitor, Volume2, VolumeX, X } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Briefcase, Smartphone, Monitor, Volume2, VolumeX, X, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { determineInitialScale, getWorkStatusForDate } from './lib/scaleLogic.js'
 import { getHolidaysForYear, isHoliday } from './lib/holidays.js'
 import { useEvents } from './hooks/useEvents.js'
 import { EventModal } from './components/EventModal.jsx'
 import { DayDetailsModal } from './components/DayDetailsModal.jsx'
+import { LoginModal } from './components/LoginModal.jsx'
+import { db } from './lib/firebase.js'
+import { ref, get, set, onValue } from 'firebase/database'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx'
 import './App.css'
 
 const normalizeDate = (date) => {
@@ -43,6 +47,19 @@ function App() {
     return savedSoundsEnabled ? JSON.parse(savedSoundsEnabled) : true
   })
   const [showDayDetailsModal, setShowDayDetailsModal] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [currentUser, setCurrentUser] = useState(() => {
+    return localStorage.getItem('currentUser') || null
+  })
+
+  // Sincronizar currentUser no localStorage
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('currentUser', currentUser)
+    } else {
+      localStorage.removeItem('currentUser')
+    }
+  }, [currentUser])
 
   useEffect(() => {
     localStorage.setItem("soundsEnabled", JSON.stringify(soundsEnabled))
@@ -118,7 +135,35 @@ function App() {
     }
   }
 
-  const { events, addEvent, updateEvent, removeEvent, getEventsForDate } = useEvents()
+  const { events, addEvent, updateEvent, removeEvent, getEventsForDate } = useEvents(currentUser)
+
+  // Sincronizar Escala com Firebase
+  useEffect(() => {
+    if (!currentUser) return
+
+    const scaleRef = ref(db, `users/${currentUser}/userScale`)
+    const unsubscribe = onValue(scaleRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setUserScale(snapshot.val())
+        setShowInitialSetup(false)
+      } else {
+        setUserScale(null)
+        setShowInitialSetup(true)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [currentUser])
+
+  // Salvar escala no Firebase
+  const saveScaleToFirebase = async (scale) => {
+    if (!currentUser) return
+    try {
+      await set(ref(db, `users/${currentUser}/userScale`), scale)
+    } catch (err) {
+      console.error('Erro ao salvar escala:', err)
+    }
+  }
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -128,16 +173,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const savedScale = localStorage.getItem('userScale')
-    if (savedScale) {
-      try {
-        const parsed = JSON.parse(savedScale)
-        setUserScale(parsed)
-      } catch (e) {
-        setUserScale(savedScale)
-      }
-      setShowInitialSetup(false)
-    }
+    // Escala agora é carregada via Firebase no useEffect acima
   }, [])
 
   const handleInitialSetup = (isOffToday) => {
@@ -145,7 +181,7 @@ function App() {
     setUserScale(scale)
     setShowInitialSetup(false)
     setChangingScale(false)
-    localStorage.setItem('userScale', scale)
+    saveScaleToFirebase(scale)
   }
 
   const handleCustomSetup = () => {
@@ -192,7 +228,7 @@ function App() {
     setShowInitialSetup(false)
     setChangingScale(false)
     setSetupStep('initial')
-    localStorage.setItem('userScale', JSON.stringify(scaleObj))
+    saveScaleToFirebase(scaleObj)
   }
 
   const goToPreviousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
@@ -267,6 +303,24 @@ function App() {
       dateStr.includes(query)
     )
   })
+
+  const groupedFilteredEvents = useMemo(() => {
+    const groups = {}
+
+    filteredEvents.forEach(evt => {
+      const groupId = evt.parentEventId || evt.id
+      if (!groups[groupId]) {
+        groups[groupId] = {
+          ...evt,
+          instances: [],
+          isSeries: !!(evt.parentEventId || (evt.recurrence && evt.recurrence !== 'none'))
+        }
+      }
+      groups[groupId].instances.push(evt)
+    })
+
+    return Object.values(groups).sort((a, b) => new Date(a.date) - new Date(b.date))
+  }, [filteredEvents])
 
 
 
@@ -552,8 +606,8 @@ function App() {
                         <div key={offset} className="space-y-4">
                           <p className="text-center text-[14px] font-bold uppercase tracking-wider text-muted-foreground">Previsão para {monthName}</p>
                           <div className="grid grid-cols-7 gap-1.5 max-w-[320px] mx-auto">
-                            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(d => (
-                              <div key={d} className="text-[14px] text-center font-bold text-muted-foreground/50">{d}</div>
+                            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                              <div key={`${d}-${i}`} className="text-[14px] text-center font-bold text-muted-foreground/50">{d}</div>
                             ))}
                             {getDaysInMonth(targetMonthDate).map((dayInfo, i) => {
                               const { date, isCurrentMonth } = dayInfo
@@ -626,6 +680,10 @@ function App() {
   }
 
 
+  if (!currentUser) {
+    return <LoginModal isOpen={true} onLogin={(user) => setCurrentUser(user)} />
+  }
+
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
 
@@ -666,6 +724,19 @@ function App() {
                 onClick={() => setSoundsEnabled(prev => !prev)}
               >
                 {soundsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </Button>
+              <Button
+                id="btn-logout"
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0 shrink-0 border border-transparent hover:border-border text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  playClickSound()
+                  setShowLogoutModal(true)
+                }}
+                title="Sair"
+              >
+                <LogOut className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -852,12 +923,12 @@ function App() {
 
             {/* Lista de resultados */}
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {filteredEvents.length > 0 ? (
-                filteredEvents.map(evt => (
+              {groupedFilteredEvents.length > 0 ? (
+                groupedFilteredEvents.map(evt => (
                   <div
                     key={evt.id}
                     id={`search-result-${evt.id}`}
-                    className="p-2 bg-muted/20 rounded cursor-pointer flex justify-between items-center hover:bg-muted/40"
+                    className="p-3 bg-muted/20 rounded-lg cursor-pointer flex justify-between items-center hover:bg-muted/40 transition-colors border border-transparent hover:border-border"
                     onClick={() => {
                       setSelectedEvent(evt);
                       setSelectedDate(normalizeDate(evt.date));
@@ -865,25 +936,66 @@ function App() {
                       setShowSearchModal(false);
                     }}
                   >
-                    <div>
-                      <span className="font-mono mr-2">
-                        {new Date(new Date(evt.date).setDate(new Date(evt.date).getDate() + 1))
-                          .toLocaleDateString('pt-BR')}
-                      </span>
-                      <span className="font-medium">{evt.title}</span>
-                      {evt.category && <Badge className="ml-2">{evt.category}</Badge>}
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground truncate">{evt.title}</span>
+                        {evt.isSeries && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+                            Série • {evt.instances.length}x
+                          </Badge>
+                        )}
+                        {evt.category && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {evt.category}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <CalendarDays className="w-3 h-3" />
+                        <span>
+                          {evt.isSeries ? 'Série de eventos' : new Date(new Date(evt.date).setDate(new Date(evt.date).getDate() + 1)).toLocaleDateString('pt-BR')}
+                        </span>
+                        {evt.time && (
+                          <>
+                            <span className="mx-1">•</span>
+                            <Clock className="w-3 h-3" />
+                            <span>{evt.time}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">Nenhum evento encontrado.</p>
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground italic">Nenhum evento encontrado.</p>
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
-
-
+      {/* MODAL DE LOGOUT */}
+      <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">Sair da Conta</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <p className="text-muted-foreground">Tem certeza que deseja sair da sua conta?</p>
+            <p className="text-xs text-muted-foreground/60 mt-1 italic">Você precisará do seu login de 7 dígitos para entrar novamente.</p>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <Button variant="outline" className="flex-1" onClick={() => setShowLogoutModal(false)}>Cancelar</Button>
+            <Button variant="destructive" className="flex-1" onClick={() => {
+              playClickSound()
+              setCurrentUser(null)
+              setShowLogoutModal(false)
+            }}>Sair</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )

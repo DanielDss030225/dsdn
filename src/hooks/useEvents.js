@@ -1,113 +1,109 @@
 import { useState, useEffect } from 'react'
+import { db } from '../lib/firebase.js'
+import { ref, onValue, set, remove } from 'firebase/database'
 
-const STORAGE_KEY = 'agenda-events'
-
-export function useEvents() {
+export function useEvents(username) {
   const [events, setEvents] = useState([])
 
-  // Carregar eventos do localStorage
+  // Carregar eventos do Firebase quando o username mudar
   useEffect(() => {
-    try {
-      const savedEvents = localStorage.getItem(STORAGE_KEY)
-      if (savedEvents) {
-        setEvents(JSON.parse(savedEvents))
-      }
-    } catch (error) {
-      console.error('Erro ao carregar eventos:', error)
+    if (!username) {
+      setEvents([])
+      return
     }
-  }, [])
 
-  // Salvar eventos no localStorage sempre que a lista mudar
-  useEffect(() => {
+    const eventsRef = ref(db, `users/${username}/events`)
+    const unsubscribe = onValue(eventsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val()
+        // Converter objeto do Firebase para array se necessário (Firebase pode retornar objeto se as chaves forem IDs)
+        const eventsList = Object.values(data)
+        setEvents(eventsList)
+      } else {
+        setEvents([])
+      }
+    })
+
+    return () => unsubscribe()
+  }, [username])
+
+  // Função auxiliar para salvar no Firebase
+  const saveToFirebase = async (newEvents) => {
+    if (!username) return
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(events))
+      await set(ref(db, `users/${username}/events`), newEvents)
     } catch (error) {
-      console.error('Erro ao salvar eventos:', error)
+      console.error('Erro ao salvar no Firebase:', error)
     }
-  }, [events])
+  }
 
   // Adicionar evento
-  const addEvent = (eventData) => {
+  const addEvent = async (eventData) => {
     const newEvent = {
-      id: Date.now() + Math.random(), // ID único
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // ID único mais seguro
       ...eventData,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
 
-    // Se o evento tem recorrência, gerar eventos recorrentes
+    let finalEvents = []
     if (eventData.recurrence && eventData.recurrence !== 'none') {
       const recurringEvents = generateRecurringEvents(newEvent)
-      setEvents(prev => [...prev, ...recurringEvents])
+      finalEvents = [...events, ...recurringEvents]
     } else {
-      setEvents(prev => [...prev, newEvent])
+      finalEvents = [...events, newEvent]
     }
 
+    await saveToFirebase(finalEvents)
     return newEvent
   }
 
   // Atualizar evento
-  const updateEvent = (eventId, updates) => {
-    setEvents(prevEvents => {
-      const existingEvent = prevEvents.find(event => event.id === eventId);
-      if (!existingEvent) return prevEvents;
+  const updateEvent = async (eventId, updates) => {
+    const existingEvent = events.find(event => event.id === eventId);
+    if (!existingEvent) return;
 
-      const updatedEvent = { ...existingEvent, ...updates, updatedAt: new Date().toISOString() };
+    const updatedEvent = { ...existingEvent, ...updates, updatedAt: new Date().toISOString() };
+    const recurrenceChanged = existingEvent.recurrence !== updatedEvent.recurrence;
+    const dateChanged = existingEvent.date !== updatedEvent.date;
 
-      // Verifica se a recorrência ou a data base (que afeta a recorrência) mudou
-      const recurrenceChanged = existingEvent.recurrence !== updatedEvent.recurrence;
-      const dateChanged = existingEvent.date !== updatedEvent.date;
+    let finalEvents = []
+    if (recurrenceChanged || dateChanged) {
+      const filteredEvents = events.filter(event =>
+        event.id !== eventId && event.parentEventId !== eventId
+      );
 
-      if (recurrenceChanged || dateChanged) {
-        // Se a recorrência ou a data base mudou, precisamos remover todas as instâncias antigas
-        // e gerar novas instâncias com base no evento atualizado.
-        const filteredEvents = prevEvents.filter(event => 
-          event.id !== eventId && event.parentEventId !== eventId
-        );
-
-        if (updatedEvent.recurrence && updatedEvent.recurrence !== 'none') {
-          // Gerar novas ocorrências para o evento atualizado
-          const newRecurringEvents = generateRecurringEvents(updatedEvent);
-          return [...filteredEvents, ...newRecurringEvents];
-        } else {
-          // Se a recorrência foi removida, apenas adiciona o evento único atualizado
-          return [...filteredEvents, updatedEvent];
-        }
+      if (updatedEvent.recurrence && updatedEvent.recurrence !== 'none') {
+        const newRecurringEvents = generateRecurringEvents(updatedEvent);
+        finalEvents = [...filteredEvents, ...newRecurringEvents];
       } else {
-        // Se a recorrência não mudou, apenas atualiza o evento existente (ou sua instância)
-        return prevEvents.map(event => 
-          event.id === eventId 
-            ? updatedEvent
-            : event
-        );
+        finalEvents = [...filteredEvents, updatedEvent];
       }
-    });
+    } else {
+      finalEvents = events.map(event =>
+        event.id === eventId ? updatedEvent : event
+      );
+    }
+
+    await saveToFirebase(finalEvents)
   }
 
   // Remover evento
-  const removeEvent = (eventId) => {
-    setEvents(prev => {
-      const eventToDelete = prev.find(event => event.id === eventId);
-      if (!eventToDelete) return prev; // Evento não encontrado
+  const removeEvent = async (eventId) => {
+    const eventToDelete = events.find(event => event.id === eventId);
+    if (!eventToDelete) return;
 
-      if (eventToDelete.recurrence && eventToDelete.recurrence !== 'none') {
-        // Se o evento a ser deletado é o evento base recorrente, remove ele e todas as suas instâncias
-        return prev.filter(event => event.parentEventId !== eventId && event.id !== eventId);
-      } else if (eventToDelete.parentEventId) {
-        // Se o evento a ser deletado é uma instância de um evento recorrente, remove o evento base e todas as suas instâncias
-        // Se o evento a ser deletado é uma instância de um evento recorrente, 
-        // precisamos encontrar o evento base e remover todas as suas instâncias, incluindo ele mesmo.
-        const parentId = eventToDelete.parentEventId;
-        // Se o evento deletado é uma instância, mas não o evento base, 
-        // precisamos encontrar o evento base (se existir) e remover todas as suas ocorrências.
-        // Caso contrário, se for o evento base, a primeira condição já o teria tratado.
-        // A lógica atual já cobre isso, mas vamos garantir que o parentId seja usado corretamente para filtrar.
-        return prev.filter(event => event.parentEventId !== parentId && event.id !== parentId);
-      } else {
-        // Se não é recorrente e não tem parentEventId, remove apenas o evento específico
-        return prev.filter(event => event.id !== eventId);
-      }
-    });
+    let finalEvents = []
+    if (eventToDelete.recurrence && eventToDelete.recurrence !== 'none') {
+      finalEvents = events.filter(event => event.parentEventId !== eventId && event.id !== eventId);
+    } else if (eventToDelete.parentEventId) {
+      const parentId = eventToDelete.parentEventId;
+      finalEvents = events.filter(event => event.parentEventId !== parentId && event.id !== parentId);
+    } else {
+      finalEvents = events.filter(event => event.id !== eventId);
+    }
+
+    await saveToFirebase(finalEvents)
   }
 
   // Obter eventos para uma data específica
@@ -120,7 +116,7 @@ export function useEvents() {
   const getEventsForPeriod = (startDate, endDate) => {
     const start = startDate.toISOString().split('T')[0]
     const end = endDate.toISOString().split('T')[0]
-    
+
     return events.filter(event => {
       return event.date >= start && event.date <= end
     })
@@ -128,10 +124,10 @@ export function useEvents() {
 
   // Gerar eventos recorrentes
   const generateRecurringEvents = (baseEvent) => {
-    const events = [baseEvent]
+    const recurringEvents = [baseEvent]
     const startDate = new Date(baseEvent.date)
     const endDate = new Date()
-    endDate.setFullYear(endDate.getFullYear() + 2) // Gerar para os próximos 2 anos
+    endDate.setFullYear(endDate.getFullYear() + 2)
 
     let currentDate = new Date(startDate)
 
@@ -152,49 +148,29 @@ export function useEvents() {
           nextDate.setFullYear(nextDate.getFullYear() + 1)
           break
         default:
-          return events
+          return recurringEvents
       }
 
-      if (nextDate <= endDate) {
+      if (nextDate <= endDate && nextDate.toISOString().split('T')[0] !== startDate.toISOString().split('T')[0]) {
         const recurringEvent = {
           ...baseEvent,
-          id: Date.now() + Math.random(),
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           date: nextDate.toISOString().split('T')[0],
           isRecurring: true,
           parentEventId: baseEvent.id
         }
-        events.push(recurringEvent)
+        recurringEvents.push(recurringEvent)
       }
 
       currentDate = nextDate
     }
 
-    return events
+    return recurringEvents
   }
 
   // Limpar todos os eventos
-  const clearAllEvents = () => {
-    setEvents([])
-  }
-
-  // Exportar eventos
-  const exportEvents = () => {
-    return JSON.stringify(events, null, 2)
-  }
-
-  // Importar eventos
-  const importEvents = (eventsJson) => {
-    try {
-      const importedEvents = JSON.parse(eventsJson)
-      if (Array.isArray(importedEvents)) {
-        setEvents(importedEvents)
-        return true
-      }
-      return false
-    } catch (error) {
-      console.error('Erro ao importar eventos:', error)
-      return false
-    }
+  const clearAllEvents = async () => {
+    await saveToFirebase([])
   }
 
   return {
@@ -204,8 +180,6 @@ export function useEvents() {
     removeEvent,
     getEventsForDate,
     getEventsForPeriod,
-    clearAllEvents,
-    exportEvents,
-    importEvents
+    clearAllEvents
   }
 }
